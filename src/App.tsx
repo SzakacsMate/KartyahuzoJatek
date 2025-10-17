@@ -1,12 +1,13 @@
-import Card from "./components/Card"
+
+import EnemiesList from "./components/EnemiesList"
 import { EnemyProvider } from "./components/EnemyContext"
 
-const App = () => {
+const App:React.FC = () => {
 
   return (
     <div>
         <EnemyProvider>
-          <Card />
+          <EnemiesList />
         </EnemyProvider>
     </div>
   )
