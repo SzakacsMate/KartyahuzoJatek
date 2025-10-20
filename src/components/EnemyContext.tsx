@@ -1,17 +1,18 @@
 import { createContext, useEffect, useState, type ReactNode } from 'react'
 
+let stored=0;
 export type EnemyType = {
   id: string
   enemyName: string
   enemyIcon: string
   level: number
-  reward: string
-  penalty: string
+  reward: number
+  penalty: number
 }
 
 export type PlayerType = {
-  health: string
-  attack: string
+  health: number
+  attack: number
   rewards: string[]
   penalties: string[]
 }
@@ -29,10 +30,11 @@ type EnemyContextType = {
   pool: EnemyType[]
   active: EnemyType[]
   defeated: EnemyType[]
+  stored:EnemyType[]
   player: PlayerType
   pickRandomToActive: () => EnemyType | undefined
   pickByIdToActive: (id: string) => EnemyType | undefined
-  returnToPool: (id: string) => void
+  storedEnemies: (id: string) => void
   markDefeated: (id: string) => void
   fightEnemy: (id: string) => FightResult | undefined
   setPlayer: (p: Partial<PlayerType>) => void
@@ -45,10 +47,11 @@ export const EnemiesContext = createContext<EnemyContextType>({
   pool: [],
   active: [],
   defeated: [],
-  player: { health: HEART + HEART + HEART, attack: SWORD, rewards: [], penalties: [] },
+  stored:[],
+  player: { health: 3, attack: 0, rewards: [], penalties: [] },
   pickRandomToActive: () => undefined,
   pickByIdToActive: () => undefined,
-  returnToPool: () => {},
+  storedEnemies: () => {},
   markDefeated: () => {},
   fightEnemy: () => undefined,
   setPlayer: () => {}
@@ -59,8 +62,8 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
   const [active, setActive] = useState<EnemyType[]>([])
   const [defeated, setDefeated] = useState<EnemyType[]>([])
   const [player, setPlayerState] = useState<PlayerType>({
-    health: HEART + HEART + HEART,
-    attack: SWORD,
+    health: 3,
+    attack: 0,
     rewards: [],
     penalties: []
   })
@@ -89,11 +92,11 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
   const addN = (s: string, e: string, n: number) => s + e.repeat(Math.max(0, n))
 
   const applyEffectToPlayer = (effect: string, isReward: boolean) => {
-    const hearts = count(effect, HEART)
-    const swords = count(effect, SWORD)
+    const hearts = 3
+    const swords = 0
     setPlayerState(prev => {
-      const health = isReward ? addN(prev.health, HEART, hearts) : removeN(prev.health, HEART, hearts)
-      const attack = isReward ? addN(prev.attack, SWORD, swords) : removeN(prev.attack, SWORD, swords)
+      const health = isReward ? addN(prev.health, 3) : removeN(prev.health, 3)
+      const attack = isReward ? addN(prev.attack, 0) : removeN(prev.attack, 0)
       return {
         ...prev,
         health,
@@ -121,11 +124,12 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     return found
   }
 
-  const returnToPool = (id: string) => {
+  const storedEnemies= (id: string) => {
     const found = active.find(a => a.id === id)
     if (!found) return
     setActive(a => a.filter(x => x.id !== id))
     setPool(p => [found, ...p])
+    stored++;
   }
 
   const markDefeated = (id: string) => {
@@ -135,15 +139,15 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     setDefeated(d => [found, ...d])
   }
 
-  const rollD20 = (mod = 0) => Math.floor(Math.random() * 20) + 1 + mod
+  const rollD20 =Math.floor( Math.random()*(20-1))
 
   const fightEnemy = (id: string): FightResult | undefined => {
     const enemy = active.find(e => e.id === id)
     if (!enemy) return undefined
 
-    const playerAttackMod = count(player.attack, SWORD)
-    const playerRoll = rollD20(playerAttackMod)
-    const enemyRoll = rollD20(enemy.level)
+    const playerAttackMod = rollD20+player.attack;
+    const playerRoll = playerAttackMod
+    const enemyRoll = rollD20
 
     if (playerRoll > enemyRoll) {
       markDefeated(id)
@@ -154,6 +158,7 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     if (playerRoll < enemyRoll) {
       setActive(a => a.filter(x => x.id !== id))
       setPool(p => [enemy, ...p])
+      
       applyEffectToPlayer(enemy.penalty, false)
       return { result: 'lose', playerRoll, enemyRoll, enemyId: id, penalty: enemy.penalty }
     }
@@ -165,8 +170,8 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <EnemiesContext.Provider value={{
-      pool, active, defeated, player,
-      pickRandomToActive, pickByIdToActive, returnToPool, markDefeated, fightEnemy, setPlayer
+      pool, active, defeated,stored, player,
+      pickRandomToActive, pickByIdToActive, storedEnemies, markDefeated, fightEnemy, setPlayer
     }}>
       {children}
     </EnemiesContext.Provider>

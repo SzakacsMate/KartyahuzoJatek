@@ -8,10 +8,11 @@ const EnemiesList: React.FC = () => {
     pool,
     active,
     defeated,
+    stored,
     player,
     pickRandomToActive,
     
-    returnToPool,
+    storedEnemies,
     markDefeated,
     fightEnemy
   } = useContext(EnemiesContext)
@@ -46,7 +47,7 @@ const EnemiesList: React.FC = () => {
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <Button variant="outline" onClick={() => onFight(e.id)}>Fight</Button>
               <Button variant="outline" onClick={() => markDefeated(e.id)}>Mark defeated</Button>
-              <Button variant="outline" onClick={() => returnToPool(e.id)}>Return to pool</Button>
+              <Button variant="outline" onClick={() => storedEnemies(e.id)}>Return to pool</Button>
             </div>
           </div>
         ))}
@@ -63,7 +64,17 @@ const EnemiesList: React.FC = () => {
           </div>
         ))}
       </div>
+      <h3>Stored Enemies</h3>
+      {defeated.length === 0 && <div>No stored enemies</div>}
+      <div>
+        {stored.map(e => (
+          <div key={e.id} style={{ marginBottom: 6 }}>
+            <Card enemy={e} />
+          </div>
+        ))}
+      </div>
     </div>
+    
   )
 }
 
