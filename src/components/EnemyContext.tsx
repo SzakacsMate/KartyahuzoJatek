@@ -10,10 +10,10 @@ export type EnemyType = {
 }
 
 export type PlayerType = {
-  health: string // hearts, e.g. "❤️❤️"
-  attack: string // swords, e.g. "⚔️⚔️"
-  rewards: string[] // history of reward strings
-  penalties: string[] // history of penalty strings
+  health: string
+  attack: string
+  rewards: string[]
+  penalties: string[]
 }
 
 type FightResult = {
@@ -67,59 +67,48 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     fetch('cards.json')
-      .then(res => res.json())
+      .then(r => r.json())
       .then((data: Omit<EnemyType, 'id'>[]) => {
-        const withIds = (Array.isArray(data) ? data : []).map((d, i) => ({
+        const list = (Array.isArray(data) ? data : []).map((d, i) => ({
           id: typeof globalThis.crypto?.randomUUID === 'function'
             ? globalThis.crypto.randomUUID()
             : `${Date.now()}-${i}`,
           ...d
         }))
-        setPool(withIds)
+        setPool(list)
       })
       .catch(() => setPool([]))
   }, [])
 
-  const countEmoji = (s: string, emoji: string) =>
-    s ? s.split(emoji).length - 1 : 0
-
-  const removeNEmoji = (s: string, emoji: string, n: number) => {
+  const count = (s: string, e: string) => s ? s.split(e).length - 1 : 0
+  const removeN = (s: string, e: string, n: number) => {
     let out = s
-    while (n > 0 && out.includes(emoji)) {
-      out = out.replace(emoji, '')
-      n--
-    }
+    while (n > 0 && out.includes(e)) { out = out.replace(e, ''); n-- }
     return out
   }
+  const addN = (s: string, e: string, n: number) => s + e.repeat(Math.max(0, n))
 
-  const addNEmoji = (s: string, emoji: string, n: number) =>
-    s + emoji.repeat(Math.max(0, n))
-
-  // apply a reward or penalty string to player: count hearts and swords in the effect string
   const applyEffectToPlayer = (effect: string, isReward: boolean) => {
-    const hearts = countEmoji(effect, HEART)
-    const swords = countEmoji(effect, SWORD)
-
+    const hearts = count(effect, HEART)
+    const swords = count(effect, SWORD)
     setPlayerState(prev => {
-      let newHealth = prev.health
-      let newAttack = prev.attack
-      if (isReward) {
-        if (hearts > 0) newHealth = addNEmoji(newHealth, HEART, hearts)
-        if (swords > 0) newAttack = addNEmoji(newAttack, SWORD, swords)
-        return { ...prev, health: newHealth, attack: newAttack, rewards: [effect, ...prev.rewards] }
-      } else {
-        if (hearts > 0) newHealth = removeNEmoji(newHealth, HEART, hearts)
-        if (swords > 0) newAttack = removeNEmoji(newAttack, SWORD, swords)
-        return { ...prev, health: newHealth, attack: newAttack, penalties: [effect, ...prev.penalties] }
+      const health = isReward ? addN(prev.health, HEART, hearts) : removeN(prev.health, HEART, hearts)
+      const attack = isReward ? addN(prev.attack, SWORD, swords) : removeN(prev.attack, SWORD, swords)
+      return {
+        ...prev,
+        health,
+        attack,
+        rewards: isReward ? [effect, ...prev.rewards] : prev.rewards,
+        penalties: !isReward ? [effect, ...prev.penalties] : prev.penalties
       }
     })
   }
 
   const pickRandomToActive = () => {
-    if (pool.length === 0) return undefined
+    if (!pool.length) return undefined
     const idx = Math.floor(Math.random() * pool.length)
     const picked = pool[idx]
-    setPool(p => p.filter(e => e.id !== picked.id))
+    setPool(p => p.filter(x => x.id !== picked.id))
     setActive(a => [picked, ...a])
     return picked
   }
@@ -127,7 +116,7 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
   const pickByIdToActive = (id: string) => {
     const found = pool.find(p => p.id === id)
     if (!found) return undefined
-    setPool(p => p.filter(e => e.id !== id))
+    setPool(p => p.filter(x => x.id !== id))
     setActive(a => [found, ...a])
     return found
   }
@@ -152,47 +141,32 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     const enemy = active.find(e => e.id === id)
     if (!enemy) return undefined
 
-    // derive numeric attack modifier from count of swords in player's attack string
-    const playerAttackMod = countEmoji(player.attack, SWORD)
+    const playerAttackMod = count(player.attack, SWORD)
     const playerRoll = rollD20(playerAttackMod)
     const enemyRoll = rollD20(enemy.level)
 
     if (playerRoll > enemyRoll) {
-      // win
       markDefeated(id)
-      applyEffectToPlayer(enemy.reward, true) // reward strings modify player's heart/sword strings
+      applyEffectToPlayer(enemy.reward, true)
       return { result: 'win', playerRoll, enemyRoll, enemyId: id, reward: enemy.reward }
     }
 
     if (playerRoll < enemyRoll) {
-      // lose
-      // return enemy to pool and apply penalty
       setActive(a => a.filter(x => x.id !== id))
       setPool(p => [enemy, ...p])
       applyEffectToPlayer(enemy.penalty, false)
       return { result: 'lose', playerRoll, enemyRoll, enemyId: id, penalty: enemy.penalty }
     }
 
-    // draw
-    
+    return undefined
   }
 
-  const setPlayer = (p: Partial<PlayerType>) => {
-    setPlayerState(prev => ({ ...prev, ...p }))
-  }
+  const setPlayer = (p: Partial<PlayerType>) => setPlayerState(prev => ({ ...prev, ...p }))
 
   return (
     <EnemiesContext.Provider value={{
-      pool,
-      active,
-      defeated,
-      player,
-      pickRandomToActive,
-      pickByIdToActive,
-      returnToPool,
-      markDefeated,
-      fightEnemy,
-      setPlayer
+      pool, active, defeated, player,
+      pickRandomToActive, pickByIdToActive, returnToPool, markDefeated, fightEnemy, setPlayer
     }}>
       {children}
     </EnemiesContext.Provider>
