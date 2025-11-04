@@ -1,6 +1,5 @@
 import { createContext, useEffect, useState, type ReactNode } from 'react'
 
-let stored=0;
 export type EnemyType = {
   id: string
   enemyName: string
@@ -22,8 +21,8 @@ type FightResult = {
   playerRoll: number
   enemyRoll: number
   enemyId: string
-  reward?: string
-  penalty?: string
+  reward?: number
+  penalty?: number
 }
 
 type EnemyContextType = {
@@ -39,9 +38,6 @@ type EnemyContextType = {
   fightEnemy: (id: string) => FightResult | undefined
   setPlayer: (p: Partial<PlayerType>) => void
 }
-
-const HEART = '❤️'
-const SWORD = '⚔️'
 
 export const EnemiesContext = createContext<EnemyContextType>({
   pool: [],
@@ -61,6 +57,7 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
   const [pool, setPool] = useState<EnemyType[]>([])
   const [active, setActive] = useState<EnemyType[]>([])
   const [defeated, setDefeated] = useState<EnemyType[]>([])
+  const [stored, setStored] = useState<EnemyType[]>([])
   const [player, setPlayerState] = useState<PlayerType>({
     health: 3,
     attack: 0,
@@ -83,26 +80,19 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
       .catch(() => setPool([]))
   }, [])
 
-  const count = (s: string, e: string) => s ? s.split(e).length - 1 : 0
-  const removeN = (s: string, e: string, n: number) => {
-    let out = s
-    while (n > 0 && out.includes(e)) { out = out.replace(e, ''); n-- }
-    return out
-  }
-  const addN = (s: string, e: string, n: number) => s + e.repeat(Math.max(0, n))
+  
+  const numberToString = (n: number) => n.toString()
 
-  const applyEffectToPlayer = (effect: string, isReward: boolean) => {
-    const hearts = 3
-    const swords = 0
+  const applyEffectToPlayer = (effect: number, isReward: boolean) => {
     setPlayerState(prev => {
-      const health = isReward ? addN(prev.health, 3) : removeN(prev.health, 3)
-      const attack = isReward ? addN(prev.attack, 0) : removeN(prev.attack, 0)
+      const health = isReward ? prev.health + effect : Math.max(0, prev.health - effect)
+      const attack = isReward ? prev.attack + effect : Math.max(0, prev.attack - effect)
       return {
         ...prev,
         health,
         attack,
-        rewards: isReward ? [effect, ...prev.rewards] : prev.rewards,
-        penalties: !isReward ? [effect, ...prev.penalties] : prev.penalties
+        rewards: isReward ? [numberToString(effect), ...prev.rewards] : prev.rewards,
+        penalties: !isReward ? [numberToString(effect), ...prev.penalties] : prev.penalties
       }
     })
   }
@@ -129,7 +119,7 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     if (!found) return
     setActive(a => a.filter(x => x.id !== id))
     setPool(p => [found, ...p])
-    stored++;
+    setStored(s => [found, ...s])
   }
 
   const markDefeated = (id: string) => {
@@ -139,31 +129,27 @@ export const EnemyProvider = ({ children }: { children: ReactNode }) => {
     setDefeated(d => [found, ...d])
   }
 
-  const rollD20 =Math.floor( Math.random()*(20-1))
+  const rollD20 = () => Math.floor(Math.random() * 20) + 1  
 
   const fightEnemy = (id: string): FightResult | undefined => {
     const enemy = active.find(e => e.id === id)
     if (!enemy) return undefined
 
-    const playerAttackMod = rollD20+player.attack;
-    const playerRoll = playerAttackMod
-    const enemyRoll = rollD20
+    const baseRoll = rollD20()
+    const playerRoll = baseRoll + player.attack
+    const enemyRoll = rollD20()
 
-    if (playerRoll > enemyRoll) {
+    if (playerRoll >= enemyRoll) {  // Player wins ties
       markDefeated(id)
       applyEffectToPlayer(enemy.reward, true)
       return { result: 'win', playerRoll, enemyRoll, enemyId: id, reward: enemy.reward }
-    }
-
-    if (playerRoll < enemyRoll) {
+    } else {
       setActive(a => a.filter(x => x.id !== id))
       setPool(p => [enemy, ...p])
       
       applyEffectToPlayer(enemy.penalty, false)
       return { result: 'lose', playerRoll, enemyRoll, enemyId: id, penalty: enemy.penalty }
     }
-
-    return undefined
   }
 
   const setPlayer = (p: Partial<PlayerType>) => setPlayerState(prev => ({ ...prev, ...p }))

@@ -65,7 +65,7 @@ const EnemiesList: React.FC = () => {
         ))}
       </div>
       <h3>Stored Enemies</h3>
-      {defeated.length === 0 && <div>No stored enemies</div>}
+      {stored.length === 0 && <div>No stored enemies</div>}
       <div>
         {stored.map(e => (
           <div key={e.id} style={{ marginBottom: 6 }}>
